@@ -92,8 +92,8 @@ URL contruction for servers on non-standard ports.
 
 =head1 COPYRIGHT
 
-  Copyright (C) 2002,
-  Rob Brown, rob@roobik.com
+  Copyright (C) 2002-2003,
+  Rob Brown, bbb@cpan.org
 
   This package may be distributed under the same terms as Perl itself.
 

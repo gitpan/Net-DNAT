@@ -5,15 +5,18 @@ use Exporter;
 use vars qw(@ISA $VERSION $listen_port);
 use Net::Server::Multiplex;
 use IO::Socket;
-use Carp;
+use Carp ();
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
 
 # DEBUG warnings
-$SIG{__WARN__} = \&Carp::cluck;
+$SIG{__WARN__} = sub {
+  &Carp::cluck((scalar localtime).": [pid $$] WARNING\n : $_[0]");
+};
+
 # DEBUG dies
 my $dying = 0;
 $SIG{__DIE__} = sub {
@@ -136,6 +139,12 @@ sub mux_input {
   my $data = shift;
 
   my $pool = undef; # Which pool to redirect to
+
+  unless (defined $fh and defined fileno($fh)) {
+    $self->{net_server}->log(4, "mux_input: WEIRD fh! Trashing (",length $$data," bytes) input.  (This should never happen.)");
+    $$data = "";
+    return;
+  }
 
   if ($self->{state} eq "REQUEST") {
     $self->{net_server}->log(4, "input on [REQUEST] ($$data)");
@@ -276,8 +285,17 @@ sub mux_input {
   }
 
   if ($self->{state} eq "CONTENT" && $$data) {
-    $self->{net_server}->log(4, "input on [CONTENT] on fileno [".fileno($fh)."] (".(length $$data)." bytes) to socket on fileno [".fileno($self->{complement_object}->{fh})."]");
-    $mux->write($self->{complement_object}->{fh}, $$data);
+    # Test to make sure complement is up
+    if ($self->{complement_object} and $self->{complement_object}->{fh} and
+        defined fileno($self->{complement_object}->{fh})) {
+      $self->{net_server}->log(4, "input on [CONTENT] on fileno [".fileno($fh)."] (".(length $$data)." bytes) to socket on fileno [".fileno($self->{complement_object}->{fh})."]");
+      $mux->write($self->{complement_object}->{fh}, $$data);
+    } else {
+      $self->{net_server}->log(4, "mux_input: Complement CONTENT socket is gone! Trashing (",length $$data," bytes) input.");
+      # close() is a bit stronger than shutdown()
+      $self->close($fh);
+    }
+    # Consumed everything
     $$data = "";
   }
 
@@ -340,21 +358,21 @@ See L<Net::Server> for more details on the
 port setting and other Net::Server settings
 which may also be used with Net::DNAT.
 
-Example: port => 80
+ Example: port => 80
 
 =head2 user
 
 User to switch to once the server starts.
 (Just used by Net::Server)
 
-Example: user => "nobody"
+ Example: user => "nobody"
 
 =head2 group
 
 Group to switch to once the server starts.
 (Just used by Net::Server)
 
-Example: group => "nobody"
+ Example: group => "nobody"
 
 =head2 pools
 
@@ -369,7 +387,7 @@ be followed by an optional :port to specify
 which port to connect to.  The default is
 http (port 80) if none is specified.
 
-Example: pools => {
+ Example: pools => {
     www => "web.server.com",
     dev => "dev.server.com",
   }
@@ -380,13 +398,13 @@ Specify which key in the pools hash ref should
 be used if no specific pool could be determined
 based on the request information.
 
-Example: default_pool => www
+ Example: default_pool => www
 
 =head2 host_switch_table
 
 Specify which hosts go to which pools.
 
-Example: host_switch_table => {
+ Example: host_switch_table => {
     "server.com" => "www",
     "test.com" => "dev",
   }
@@ -418,7 +436,7 @@ whether the code ref returned a true
 value or not.  Also, the switch_filters
 are run before to the host_switch_table.
 
-Example: switch_filters => [
+ Example: switch_filters => [
     qr%^Cookie:.*magic%im => "dev",
     sub { s/^(Host: )www\.%$1%im; 0; },
   ]
@@ -474,9 +492,12 @@ See demo/* from the distribution for some working examples.
 
 =head1 TODO
 
+  Test suite example using server and client though Net::DNAT.
+  Test suite example using client and pool of servers.
+  Test suite example using Apache::DNAT.
   Support for HTTP/1.1 protocol conversion to 1.0 protocol and back again.
   Support for HTTP/1.1 KeepAlive timeout and KeepAliveRequests.
-  Support for SSL protocol conversion to plain text.
+  Support for SSL conversion to plain text and back (IO::Multiplex).
   Support for html error pages for internal errors like Server outages.
   Support for error logs.
   Support for access logs.
@@ -495,8 +516,8 @@ See demo/* from the distribution for some working examples.
 
 =head1 COPYRIGHT
 
-  Copyright (C) 2002,
-  Rob Brown, rob@roobik.com
+  Copyright (C) 2002-2003,
+  Rob Brown, bbb@cpan.org
 
   This package may be distributed under the same terms as Perl itself.
 

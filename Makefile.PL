@@ -14,6 +14,9 @@ WriteMakefile
     'IO::Multiplex' => 1.02,
     'mod_perl' => 0,
   },
+  dist => {
+    COMPRESS => "gzip -9 -vf",
+  },
   ;
 
 package MY;

@@ -27,7 +27,7 @@ run Net::DNAT
 #
 # instead of the uglier:
 #
-#   http://localhost:8080/cgi-bin/test.cgi
+#   http://localhost:8000/cgi-bin/test.cgi
 #
 # so development appears closer to what production
 # would look like.

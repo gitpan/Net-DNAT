@@ -1,6 +1,12 @@
 Changes
 =======
 
+0.08  Sat Jan 25 23:00 2003
+	- More gracefully deal with the condition when
+	  one side of the tunnel is dropped while data
+	  is still being shoved down the other side.
+	- Small documentation improvements.
+
 0.07  Mon Sep 30 12:00:00 2002
 	- Add Net::Apache::Unport fixup handler
 	  to correct the UseCanonicalName effects
