@@ -4,11 +4,11 @@ use strict;
 use Exporter;
 use vars qw(@ISA $VERSION $listen_port);
 use Net::Server::Multiplex 0.85;
-use Net::Ping 2.28;
+use Net::Ping 2.29;
 use IO::Socket;
 use Carp ();
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
@@ -94,7 +94,7 @@ sub post_configure_hook {
   my $new_switch_table_ref = {};
   foreach my $old_host (keys %{ $old_switch_table_ref }) {
     my $new_host = $old_host;
-    if ($new_host =~ s/^([a-z\-\.]*[a-z])\.?$/\L$1/i) {
+    if ($new_host =~ s/^([a-z0-9\-\.]*[a-z])\.?$/\L$1/i) {
       $new_switch_table_ref->{$new_host} = $old_switch_table_ref->{$old_host};
     } else {
       die "Invalid hostname [$old_host] in host_switch_table\n";

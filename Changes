@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.13  Sat Apr 12 13:00 2003
+	- Allow numbers in domains for host_switch_table.
+	- Newer Net::Ping avoids this rare but fatal crash:
+	  "tcp connect error - Network is unreachable"
+
 0.12  Tue Apr 01 13:00 2003
 	- Allow "-" in domains for host_switch_table.
 

@@ -2,7 +2,7 @@ package Apache::DNAT;
 
 use strict;
 use Socket qw(sockaddr_in inet_aton inet_ntoa);
-eval {use Apache::Connection; use Apache::Constants qw(DECLINED OK MOVED);};
+eval q{use Apache::Connection; use Apache::Constants qw(DECLINED OK MOVED);};
 
 sub handler {
   my $r = shift;
