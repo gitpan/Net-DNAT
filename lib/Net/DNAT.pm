@@ -7,7 +7,7 @@ use Net::Server::Multiplex;
 use IO::Socket;
 use Carp;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
@@ -330,6 +330,98 @@ incoming connections to the appropriate remote
 applications.  The remote application can be
 on a separate machine or on the same machine
 listening on a different port and/or address.
+
+=head1 SETTINGS
+
+=head2 port
+
+Specify which port or ports to listen on.
+See L<Net::Server> for more details on the
+port setting and other Net::Server settings
+which may also be used with Net::DNAT.
+
+Example: port => 80
+
+=head2 user
+
+User to switch to once the server starts.
+(Just used by Net::Server)
+
+Example: user => "nobody"
+
+=head2 group
+
+Group to switch to once the server starts.
+(Just used by Net::Server)
+
+Example: group => "nobody"
+
+=head2 pools
+
+Supply a hash ref of pool definitions.  The
+key in the hash is the pool name.  Its value
+is either one destination scalar or an array
+ref of one or more destinations.  Each
+destination may be an IP address, a single
+host, or a hostname of a round robin dns to
+several IP addresses.  Each destination may
+be followed by an optional :port to specify
+which port to connect to.  The default is
+http (port 80) if none is specified.
+
+Example: pools => {
+    www => "web.server.com",
+    dev => "dev.server.com",
+  }
+
+=head2 default_pool
+
+Specify which key in the pools hash ref should
+be used if no specific pool could be determined
+based on the request information.
+
+Example: default_pool => www
+
+=head2 host_switch_table
+
+Specify which hosts go to which pools.
+
+Example: host_switch_table => {
+    "server.com" => "www",
+    "test.com" => "dev",
+  }
+
+=head2 switch_filters
+
+Supply special header modifications or
+provide ability to compute destination
+pool based on arbitrary code.  It takes
+an array ref of destination pairs.  The
+first in the pair is either a regex or
+a code ref.  The second of the pair is
+the destination pool name from the pools
+setting.  If a regex is used, the pool
+is determined if the regex passes when
+filtered through the header request
+block.  If a code ref is used, $_ will
+contain the request header block.  If
+executing the code ref returns a true
+value, its corresponding pool with be
+used.  This is meant to be thought of
+as a hash ref, but the order must be
+preserved, and refs do not work very
+well as hash keys, so it uses an array
+ref instead.  Be aware that any
+modifications to $_ will also be passed
+on to the destination regardless of
+whether the code ref returned a true
+value or not.  Also, the switch_filters
+are run before to the host_switch_table.
+
+Example: switch_filters => [
+    qr%^Cookie:.*magic%im => "dev",
+    sub { s/^(Host: )www\.%$1%im; 0; },
+  ]
 
 =head1 PEER SOCKET SPOOF
 

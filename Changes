@@ -1,6 +1,16 @@
 Changes
 =======
 
+0.07  Mon Sep 30 12:00:00 2002
+	- Add Net::Apache::Unport fixup handler
+	  to correct the UseCanonicalName effects
+	  of self-referencing URL contruction
+	  for servers on non-standard ports.
+	- Fixed the problem when directory
+	  requests without the trailing '/'
+	  location bounce to the wrong URL.
+	- Spot by earl@cpan.org (Earl Cahill).
+
 0.06  Thu May 23 12:00:00 2002
 	- Add INSTALL doc for better help.
 	- Add mod_perl prereq hint in Makefile.PL
