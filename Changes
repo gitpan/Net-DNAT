@@ -1,6 +1,9 @@
 Changes
 =======
 
+0.12  Tue Apr 01 13:00 2003
+	- Allow "-" in domains for host_switch_table.
+
 0.11  Web Mar 06 19:00 2003
 	- Add Net::Ping periodic pool port prober to reduce
 	  chances of connecting to a down or offline node.

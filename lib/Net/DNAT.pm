@@ -8,7 +8,7 @@ use Net::Ping 2.28;
 use IO::Socket;
 use Carp ();
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
@@ -262,7 +262,7 @@ sub mux_input {
       # based on the request $_
       $_ = "$self->{request_method} $self->{request_path} HTTP/1.0\r\n$self->{request_headers_block}";
       # Rectify host header for simplicity
-      s/^Host:\s*([\w\.]*\w)\.?((:\d+)?)\r?\n/Host: \L$1$2\r\n/im;
+      s/^Host:\s*([\w\-\.]*\w)\.?((:\d+)?)\r?\n/Host: \L$1$2\r\n/im;
 
       # First run through the switch_filters
       my @switch_filters = @{ $self->{net_server}->{switch_filters} };
@@ -288,7 +288,7 @@ sub mux_input {
       }
 
       # Then run through the host_switch_table
-      if (!defined($pool) && m%^Host: ([\w\.]+)%m) {
+      if (!defined($pool) && m%^Host: ([\w\-\.]+)%m) {
         my $request_host = $1;
 
         foreach my $host (keys %{ $self->{net_server}->{host_switch_table} }) {
