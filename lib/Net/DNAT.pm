@@ -3,11 +3,12 @@ package Net::DNAT;
 use strict;
 use Exporter;
 use vars qw(@ISA $VERSION $listen_port);
-use Net::Server::Multiplex;
+use Net::Server::Multiplex 0.85;
+use Net::Ping 2.28;
 use IO::Socket;
 use Carp ();
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
@@ -66,6 +67,11 @@ sub post_configure_hook {
   };
   my $old_pools_ref = $conf_hash->{pools} ||
     die "The 'pools' setting is missing!\n";
+  unless (ref $old_pools_ref &&
+          ref $old_pools_ref eq "HASH") {
+    $old_pools_ref = { default => $old_pools_ref };
+  }
+
   my $new_pools_ref = {};
   foreach my $poolname (keys %{ $old_pools_ref }) {
     # The first element is the cycle index
@@ -82,7 +88,7 @@ sub post_configure_hook {
     }
     $new_pools_ref->{$poolname} = [ @list ];
   }
-  $self->{pools} = $new_pools_ref;
+  $self->{orig_pools} = $self->{pools} = $new_pools_ref;
 
   my $old_switch_table_ref = $conf_hash->{host_switch_table} || {};
   my $new_switch_table_ref = {};
@@ -107,15 +113,75 @@ sub post_configure_hook {
 
   $self->{default_pool} = $conf_hash->{default_pool} || undef;
   if (!defined $self->{default_pool}) {
-    die "The 'default_pool' setting nust be specified!\n";
+    if (( scalar keys %{ $self->{pools} } ) == 1) {
+      # Only one pool?  Guess that should be the default.
+      ($self->{default_pool}) = keys %{ $self->{pools} };
+    } else {
+      die "The 'default_pool' setting must be specified with multiple pools!\n";
+    }
   }
   if (!$self->{pools}->{$self->{default_pool}}) {
     die "The 'default_pool' [$self->{default_pool}] has not been defined!\n";
   }
+
+  # Plenty of time to establish the tcp three-way handshake
+  # for a connection to a destination node in a pool.
   $self->{connect_timeout} =
     defined $conf_hash->{connect_timeout} ?
-      $conf_hash->{connect_timeout} :
-        30;
+      $conf_hash->{connect_timeout} : 3;
+
+  if (exists $conf_hash->{check_for_dequeue}) {
+    if (defined $conf_hash->{check_for_dequeue} &&
+        $conf_hash->{check_for_dequeue} > 0) {
+      $self->{server}->{check_for_dequeue} =
+        $conf_hash->{check_for_dequeue};
+    }
+  } else {
+    $self->{server}->{check_for_dequeue} = 60;
+  }
+
+  $self->check_pools if $self->{server}->{check_for_dequeue};
+}
+
+sub run_dequeue {
+  my $self = shift;
+  $self->check_pools;
+}
+
+sub check_pools {
+  my $self = shift;
+  my $new_pools = {};
+  my $ping_cache = {};
+  my $pinger = new Net::Ping "tcp", $self->{connect_timeout};
+  $pinger->tcp_service_check(1);
+  foreach my $pool (keys %{ $self->{orig_pools} }) {
+    my $index = $self->{pools}->{$pool} ? $self->{pools}->{$pool}->[0] : 0;
+    for(my $i = 1; $i < @{ $self->{orig_pools}->{$pool} }; $i++) {
+      $self->log(4, "Checking pool [$pool] index [$i]...");
+      my ($host, $port) = $self->{orig_pools}->{$pool}->[$i] =~ /^(.+):(\d+)$/;
+      next unless($host && $port);
+
+      my $alive;
+      if(exists $ping_cache->{"$host:$port"}) {
+        $alive = $ping_cache->{"$host:$port"};
+        $self->log(4, "Cached  pool [$pool] index [$i] at [$host:$port] is [$alive]");
+      } else {
+        $self->log(4, "Testing pool [$pool] index [$i] at [$host:$port]...");
+        $pinger->{port_num} = $port;
+        $alive = $ping_cache->{"$host:$port"} = $pinger->ping($host);
+        if (!$alive) {
+          $self->log(1, "WARNING: [$host:$port] is down!");
+        }
+      }
+      next unless($alive);
+      if (!$new_pools->{$pool}) {
+        $new_pools->{$pool} = [$index];
+      }
+      push @{$new_pools->{$pool}}, $self->{orig_pools}->{$pool}->[$i];
+    }
+  }
+  $pinger->close;
+  $self->{pools} = $new_pools;
 }
 
 sub mux_connection {
@@ -241,6 +307,14 @@ sub mux_input {
 
       $self->{net_server}->log(4, "POOL DETERMINED: [$pool]");
       my $pool_ref = $self->{net_server}->{pools}->{$pool};
+      if (!$pool_ref) {
+        $self->{net_server}->log(4, "Pool [$pool] is down.");
+        $mux->write($fh, "ERROR: Pool [$pool] is down.\n");
+        $$data = "";
+        $mux->shutdown($fh, 2);
+        return;
+      }
+
       # Increment cycle counter.
       # If it exceeds pool size
       if (++($pool_ref->[0]) > $#{ $pool_ref }) {
@@ -280,6 +354,7 @@ sub mux_input {
         $mux->write($fh, "ERROR: Pool [$pool] Index [$pool_ref->[0]] (Peer $peeraddr) is down: $!\n");
         $$data = "";
         $mux->shutdown($fh, 2);
+        $self->{net_server}->check_pools if $self->{net_server}->{server}->{check_for_dequeue};
       }
     }
   }
@@ -293,6 +368,7 @@ sub mux_input {
     } else {
       $self->{net_server}->log(4, "mux_input: Complement CONTENT socket is gone! Trashing (".length($$data)." bytes) input.");
       # close() is a bit stronger than shutdown()
+      $mux->kill_output($fh);
       $mux->close($fh);
     }
     # Consumed everything
@@ -379,8 +455,11 @@ Group to switch to once the server starts.
 Supply a hash ref of pool definitions.  The
 key in the hash is the pool name.  Its value
 is either one destination scalar or an array
-ref of one or more destinations.  Each
-destination may be an IP address, a single
+ref of one or more destinations.  If you just
+specify the destination value instead of a
+hash ref, it will assume it is for the "default"
+pool and will also be used as "default_pool".
+Each destination may be an IP address, a single
 host, or a hostname of a round robin dns to
 several IP addresses.  Each destination may
 be followed by an optional :port to specify
@@ -392,11 +471,15 @@ http (port 80) if none is specified.
     dev => "dev.server.com",
   }
 
+ Example: pools => "web.server.com"
+
 =head2 default_pool
 
 Specify which key in the pools hash ref should
 be used if no specific pool could be determined
-based on the request information.
+based on the request information.  If only one
+pool is specified in the pools hash, that pool
+is assumed to be the default_pool.
 
  Example: default_pool => www
 
@@ -438,8 +521,26 @@ are run before to the host_switch_table.
 
  Example: switch_filters => [
     qr%^Cookie:.*magic%im => "dev",
-    sub { s/^(Host: )www\.%$1%im; 0; },
+    sub { s/^(Host: )www\.%$1%im; 0; } => "dev",
   ]
+
+=head2 connect_timeout
+
+Specify the maximum number of seconds that a
+destination node can take before it will be
+considered down.  The default is 3 seconds.
+
+ Example: connect_timeout => 10
+
+=head2 check_for_dequeue
+
+Net::DNAT can periodically perform service
+checks on the destination node of each pool.
+This setting specifies this interval in seconds.
+To disable these checks, set this to 0.
+The default is 60 seconds.
+
+ Example: check_for_dequeue => 30
 
 =head1 PEER SOCKET SPOOF
 
@@ -505,8 +606,6 @@ See demo/* from the distribution for some working examples.
   Support for FTP protocol.
   Support for OOB channel data correctly.
   Support for DNS protocol.
-  Support for periodic service checks (Net::Ping)
-    to disable and enable forwarding.
 
 =head1 LAYER
 

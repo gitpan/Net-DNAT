@@ -10,7 +10,7 @@ WriteMakefile
   ABSTRACT_FROM => "lib/Net/DNAT.pm",
   VERSION_FROM	=> "lib/Net/DNAT.pm", # finds $VERSION
   PREREQ_PM    => { # e.g., Module::Name => 1.1
-    'Net::Server' => 0.84,
+    'Net::Server' => 0.85,
     'IO::Multiplex' => 1.02,
     'mod_perl' => 0,
   },

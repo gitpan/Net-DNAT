@@ -1,6 +1,15 @@
 Changes
 =======
 
+0.11  Web Mar 06 19:00 2003
+	- Add Net::Ping periodic pool port prober to reduce
+	  chances of connecting to a down or offline node.
+	- Thanks to earl@cpan.org (Earl Cahill).
+	- Allow special case for a single pool destination
+	  to be passed for the pools setting.
+	- When there is only one pool, assume that is the
+	  default_pool if none is specified.
+
 0.10  Tue Feb 25 21:00 2003
 	- A few compatibility fixes for Apache::DNAT
 	  under Apache 2.x (mod_perl 1.99).
