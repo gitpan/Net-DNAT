@@ -1,20 +1,25 @@
 package Net::DNAT;
 
 use strict;
-
 use Exporter;
-
 use vars qw(@ISA $VERSION $listen_port);
 use Net::Server::Multiplex;
 use IO::Socket;
+use Carp;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
+
 # DEBUG warnings
-use Carp qw(cluck);
 $SIG{__WARN__} = \&Carp::cluck;
+# DEBUG dies
+$SIG{__DIE__} = sub {
+  print STDERR ((scalar localtime).": [pid $$] CRASHED\n");
+  &Carp::confess(@_);
+  exit;
+};
 
 sub _resolve_it {
   my $string = shift;
@@ -101,7 +106,7 @@ sub mux_connection {
   my $self = shift;
   shift; # I do not need mux
   my $fh   = shift;
-  print STDERR "DEBUG: Connection on fileno [".fileno($fh)."]\n";
+  $self->{net_server}->log(4, "Connection on fileno [".fileno($fh)."]");
   $self->{state} = "REQUEST";
   # Store tied file handle within object
   $self->{fh} = $fh;
@@ -120,7 +125,7 @@ sub mux_input {
   my $pool = undef; # Which pool to redirect to
 
   if ($self->{state} eq "REQUEST") {
-    print STDERR "DEBUG: input on [REQUEST] ($$data)\n";
+    $self->{net_server}->log(4, "input on [REQUEST] ($$data)");
     # Ignore leading whitespace and blank lines
     while ($$data =~ s/^\s+//) {}
     if ($$data =~ s%^([^\r\n]*)\r?\n%%) {
@@ -144,7 +149,7 @@ sub mux_input {
   }
 
   if ($self->{state} eq "HEADERS" && $$data) {
-    print STDERR "DEBUG: input on [HEADERS] ($$data)\n";
+    $self->{net_server}->log(4, "input on [HEADERS] ($$data)");
     # Search for the "nothing" line
     if ($$data =~ s/^((.*\n)*)\r?\n//) {
       # Found! Jump to next state.
@@ -212,7 +217,7 @@ sub mux_input {
         $pool = $self->{net_server}->{default_pool};
       }
 
-      print STDERR "DEBUG: POOL DETERMINED: [$pool]\n";
+      $self->{net_server}->log(4, "POOL DETERMINED: [$pool]");
       my $pool_ref = $self->{net_server}->{pools}->{$pool};
       # Increment cycle counter.
       # If it exceeds pool size
@@ -220,12 +225,13 @@ sub mux_input {
         # Start over with 1 again.
         $pool_ref->[0] = 1;
       }
-      print STDERR "DEBUG: POOL CYCLE INDEX [$pool_ref->[0]]\n";
+      $self->{net_server}->log(4, "POOL CYCLE INDEX [$pool_ref->[0]]");
       my $peeraddr = $pool_ref->[$pool_ref->[0]];
-      print STDERR "DEBUG: Connecting to destination [$peeraddr]\n";
+      $self->{net_server}->log(4, "Connecting to destination [$peeraddr]");
 
       $@ = "";
       my $peersock = eval {
+        local $SIG{__DIE__} = 'DEFAULT';
         local $SIG{ALRM} = sub { die "Timed out!\n"; };
         alarm ($self->{net_server}->{connect_timeout});
         new IO::Socket::INET $peeraddr or die "$!\n";
@@ -233,7 +239,7 @@ sub mux_input {
       alarm(0); # Reset alarm
       $peersock = undef if $@;
       if ($peersock) {
-        print STDERR "DEBUG: Connected successfully with fileno [".fileno($peersock)."]\n";
+        $self->{net_server}->log(4, "Connected successfully with fileno [".fileno($peersock)."]");
         $mux->add($peersock);
         my $proxy_object = bless {
           state => "CONTENT",
@@ -242,14 +248,14 @@ sub mux_input {
           complement_object => $self,
           net_server => $self->{net_server},
         }, (ref $self);
-        print STDERR "DEBUG: Complement for socket on fileno [".fileno($fh)."] created on fileno [".fileno($peersock)."]\n";
+        $self->{net_server}->log(4, "Complement for socket on fileno [".fileno($fh)."] created on fileno [".fileno($peersock)."]");
         $self->{complement_object} = $proxy_object;
         $mux->set_callback_object($proxy_object, $peersock);
         $mux->write($peersock, "$_\r\n");
         #$_ = "$self->{request_method} $self->{request_path} HTTP/1.0\r\n$self->{request_headers_block}";
       } else {
-        print STDERR "DEBUG: Could not connect to [$peeraddr]: $@";
-        $mux->write($fh, "ERROR: Pool [$pool] Index [$pool_ref->[0]] (Peer $peeraddr) is down: $@\n");
+        $self->{net_server}->log(4, "Could not connect to [$peeraddr]: $@");
+        $mux->write($fh, "ERROR: Pool [$pool] Index [$pool_ref->[0]] (Peer $peeraddr) is down: $!\n");
         $$data = "";
         $mux->shutdown($fh, 2);
       }
@@ -257,7 +263,7 @@ sub mux_input {
   }
 
   if ($self->{state} eq "CONTENT" && $$data) {
-    print STDERR "DEBUG: input on [CONTENT] on fileno [".fileno($fh)."] (".(length $$data)." bytes) to socket on fileno [".fileno($self->{complement_object}->{fh})."]\n";
+    $self->{net_server}->log(4, "input on [CONTENT] on fileno [".fileno($fh)."] (".(length $$data)." bytes) to socket on fileno [".fileno($self->{complement_object}->{fh})."]");
     $mux->write($self->{complement_object}->{fh}, $$data);
     $$data = "";
   }
@@ -269,13 +275,13 @@ sub mux_eof {
   my $mux  = shift;
   my $fh   = shift;
   my $data = shift;
-  print STDERR "DEBUG: EOF received on fileno [".fileno($fh)."] ($$data)\n";
+  $self->{net_server}->log(4, "EOF received on fileno [".fileno($fh)."] ($$data)");
 
   # If it hasn't been consumed by now,
   # then too bad, wipe it anyways.
   $$data = "";
   if ($self->{complement_object}) {
-    print STDERR "DEBUG: Shutting down complement on fileno [".fileno($self->{complement_object}->{fh})."]\n";
+    $self->{net_server}->log(4, "Shutting down complement on fileno [".fileno($self->{complement_object}->{fh})."]");
     # If this end was closed, then tell the
     # complement socket to close.
     $mux->shutdown($self->{complement_object}->{fh}, 2);

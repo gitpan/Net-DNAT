@@ -24,7 +24,7 @@ my $pools = {
   pool5 => "localhost:2002",
   # If there exists more than one A record,
   # all are stored and are cycled.
-  pool6 => "yahoo.com.:3001",
+  pool6 => "www.yahoo.com.:3001",
   pool7 => [ "www.yahoo.com.", "geocities.com." ],
 };
 
@@ -68,4 +68,5 @@ run Net::DNAT
   host_switch_table => $host_dest,
   switch_filters => $headers_directors,
   user => "nobody",
+  group => "nobody",
   ;

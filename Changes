@@ -1,11 +1,18 @@
 Changes
 =======
 
+0.05  Wed May 22 12:00:00 2002
+	- Remove VERSION from Apache::DNAT.
+	- Removing heavy forced debugging.
+	- Requires more robust Net::Server release.
+	- More helpful demo configurations.
+	- More general noarch RPM.
+
 0.04  Thu Apr 12 10:00:00 2002
 	- Fix CPAN magic VERSION setting.
 	- Ignore leading blank lines of request
 	  to behave more like Apache does.
-	- Use default_pool for recognized requests.
+	- Use default_pool for unrecognized requests.
 	- Only HTTP (1.0 and 1.1) protocol
 	  browsers supported at this time.
 

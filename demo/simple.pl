@@ -11,6 +11,7 @@ run Net::DNAT
   pools => { safe => "127.0.0.1:8000" },
   default_pool => "safe",
   user => "nobody",
+  group => "nobody",
   ;
 
 # This is great for security because the entire

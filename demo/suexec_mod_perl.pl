@@ -49,34 +49,39 @@
 
   Each user will have his own server and configuration
   files.  In Apache, this is done using the -f option.
-  Each configuration file will contain the Port or Listen
+  Each configuration file will contain the Listen
   directive with its corresponding port.  Also, mod_perl
   must be enabled to utilize the Apache::DNAT feature.
 
   [billy@localhost billy]$ tail ~/conf/httpd.conf
-  Alias /perl/ /home/billy/www/perl/
-  <Location /perl>
-    SetHandler perl-script
-    PerlHandler Apache::Registry
-    Options +ExecCGI
-  </Location>
+  # Don't use the Port directive
+  #Port 80
+
   # Listen: Allows you to bind Apache to specific IP addresses and/or ports
   Listen 8001
-  PerlModule Apache::DNAT
-  PerlInitHandler Apache::DNAT
+
+  <IfModule mod_perl.c>
+    PerlModule Apache::DNAT
+    PerlInitHandler Apache::DNAT
+  </IfModule>
   [billy@localhost billy]$ httpd -f ~/conf/httpd.conf
   [billy@localhost billy]$
 
-  (The goes for for the other users, too.)
+  (The same goes for the other users, too.)
 
-  No <VirtualHost> sections are required.  No special
+  No <VirtualHost> sections should be used.  No special
   User directive or SuExec configuration is required.
 
 =head1 ADMIN PROCEDURE
 
   As super user, turn on this DNAT server:
 
-  [root@localhost /root]# suexec_mod_perl.pl
+  [root@localhost /root]# suexec_mod_perl.pl --log_level=4
+
+  And to turn it off:
+
+  [root@localhost /root]# kill `cat /var/log/dnat/dnat.pid`
+
 
 =head1 SEE ALSO
 
@@ -86,6 +91,9 @@
 
 use strict;
 use Net::DNAT;
+
+my $logdir = "/var/log/dnat";
+my $nonroot = "nobody";
 
 # Pools definition configuration
 my $pools = {
@@ -108,10 +116,23 @@ my $host_dest = {
   "www.ralph.com"  => "ralph",
 };
 
+my ($uid,$gid) = (getpwnam $nonroot)[2,3];
+if (!-d $logdir) {
+  mkdir($logdir, 0755);
+  if ($uid && $gid && # Taint cleaning
+      "$uid:$gid" =~ /(\d+):(\d+)/) {
+    chown($1, $2, $logdir);
+  }
+}
+
 run Net::DNAT
   port => 80,
   pools => $pools,
   default_pool => $default_pool,
   host_switch_table => $host_dest,
-  user => "nobody",
+  user => $uid,
+  group => $gid,
+  setsid => 1,
+  log_file => "$logdir/error_log",
+  pid_file => "$logdir/dnat.pid",
   ;

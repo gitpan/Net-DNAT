@@ -1,11 +1,8 @@
 package Apache::DNAT;
 
 use strict;
-use vars qw($VERSION);
 use Apache::Constants qw(DECLINED);
 use Socket qw(sockaddr_in inet_aton inet_ntoa);
-
-$VERSION = '0.04';
 
 sub handler {
   my $r = shift;
@@ -64,7 +61,7 @@ and for logging.
 
 =head1 SEE ALSO
 
- L<Net::DNAT>
+ L<Net::DNAT>,
  L<mod_perl>,
 
 =cut
