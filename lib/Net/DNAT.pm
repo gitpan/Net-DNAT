@@ -7,7 +7,7 @@ use Net::Server::Multiplex;
 use IO::Socket;
 use Carp ();
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
@@ -141,7 +141,7 @@ sub mux_input {
   my $pool = undef; # Which pool to redirect to
 
   unless (defined $fh and defined fileno($fh)) {
-    $self->{net_server}->log(4, "mux_input: WEIRD fh! Trashing (",length $$data," bytes) input.  (This should never happen.)");
+    $self->{net_server}->log(4, "mux_input: WEIRD fh! Trashing (".length($$data)." bytes) input.  (This should never happen.)");
     $$data = "";
     return;
   }
@@ -288,12 +288,12 @@ sub mux_input {
     # Test to make sure complement is up
     if ($self->{complement_object} and $self->{complement_object}->{fh} and
         defined fileno($self->{complement_object}->{fh})) {
-      $self->{net_server}->log(4, "input on [CONTENT] on fileno [".fileno($fh)."] (".(length $$data)." bytes) to socket on fileno [".fileno($self->{complement_object}->{fh})."]");
+      $self->{net_server}->log(4, "input on [CONTENT] on fileno [".fileno($fh)."] (".length($$data)." bytes) to socket on fileno [".fileno($self->{complement_object}->{fh})."]");
       $mux->write($self->{complement_object}->{fh}, $$data);
     } else {
-      $self->{net_server}->log(4, "mux_input: Complement CONTENT socket is gone! Trashing (",length $$data," bytes) input.");
+      $self->{net_server}->log(4, "mux_input: Complement CONTENT socket is gone! Trashing (".length($$data)." bytes) input.");
       # close() is a bit stronger than shutdown()
-      $self->close($fh);
+      $mux->close($fh);
     }
     # Consumed everything
     $$data = "";

@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.09  Wed Jan 29 20:00 2003
+	- Fix this fatal crash introduced in 0.08:
+	  Can't locate object method "close" via package
+	  "Net::Server::Multiplex::MUX"
+
 0.08  Sat Jan 25 23:00 2003
 	- More gracefully deal with the condition when
 	  one side of the tunnel is dropped while data
