@@ -4,9 +4,8 @@ use strict;
 use vars qw($VERSION);
 use Apache::Constants qw(DECLINED);
 use Socket qw(sockaddr_in inet_aton inet_ntoa);
-use Net::DNAT;
 
-$VERSION = $Net::DNAT::VERSION;
+$VERSION = '0.03';
 
 sub handler {
   my $r = shift;
@@ -36,7 +35,7 @@ __END__
 
 =head1 NAME
 
-Apache::DNAT - mod_perl Apache module
+Apache::DNAT - mod_perl Apache module to undo the side-effects of Net::DNAT
 
 =head1 SYNOPSIS
 

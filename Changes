@@ -1,6 +1,13 @@
 Changes
 =======
 
+0.03  Thu Apr 11 17:00:00 2002
+	- Trim down Apache::DNAT to avoid
+	  bloating apache memory too much.
+	- Fix VERSION detection.
+	- Added more examples.
+	- Improve spec for rpm.
+
 0.02  Sat Apr 06 20:00:00 2002
 	- Highly experimental release
 	- Barely functional for HTTP protocol

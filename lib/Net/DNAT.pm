@@ -8,8 +8,9 @@ use vars qw(@ISA $VERSION $listen_port);
 use Net::Server::Multiplex;
 use IO::Socket;
 
+# Just pull the VERSION from the light Apache::DNAT module
+$VERSION = do {require Apache::DNAT; $Apache::DNAT::VERSION;};
 @ISA = qw(Net::Server::Multiplex);
-$VERSION = '0.02';
 
 $listen_port = getservbyname("http", "tcp");
 # DEBUG warnings

@@ -1,4 +1,9 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w -T
+
+# Complex example configuration to forward incoming
+# requests on port 80 to various remote pools of
+# machines and/or local services based on the URL
+# or other request header information.
 
 use strict;
 use Net::DNAT;
@@ -57,9 +62,10 @@ my $headers_directors =
   ];
 
 run Net::DNAT
-  port => 8080,
+  port => 80,
   pools => $pools,
   default_pool => $default_pool,
   host_switch_table => $host_dest,
   switch_filters => $headers_directors,
+  user => "nobody",
   ;
