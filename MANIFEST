@@ -1,5 +1,6 @@
 Changes
 README
+INSTALL
 lib/Net/DNAT.pm
 lib/Apache/DNAT.pm
 MANIFEST

@@ -1,6 +1,12 @@
 Changes
 =======
 
+0.06  Thu May 23 12:00:00 2002
+	- Add INSTALL doc for better help.
+	- Add mod_perl prereq hint in Makefile.PL
+	- Avoid crashing server when a pool drops,
+	  but still log when it occurs.
+
 0.05  Wed May 22 12:00:00 2002
 	- Remove VERSION from Apache::DNAT.
 	- Removing heavy forced debugging.

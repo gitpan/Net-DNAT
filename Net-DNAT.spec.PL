@@ -81,7 +81,7 @@ Requires:       perl = %{perlver}
 Provides:       %{real_name} = %{version}
 
 %description
-%{perlmod} Perl Module
+%{class}::%{subclass} Perl Module
 
 %prep
 %setup -q -n %{real_name}-%{version}
@@ -106,7 +106,7 @@ rm -rf $HERE
 
 %files
 %defattr(-,root,root)
-%doc README Changes demo
+%doc README INSTALL Changes demo
 %{_prefix}
 
 %changelog

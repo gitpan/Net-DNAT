@@ -7,7 +7,7 @@ use Net::Server::Multiplex;
 use IO::Socket;
 use Carp;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
@@ -15,11 +15,24 @@ $listen_port = getservbyname("http", "tcp");
 # DEBUG warnings
 $SIG{__WARN__} = \&Carp::cluck;
 # DEBUG dies
+my $dying = 0;
 $SIG{__DIE__} = sub {
-  print STDERR ((scalar localtime).": [pid $$] CRASHED\n");
+  $dying++;
+  if ($dying > 2) {
+    # Safety to avoid recursive or infinite dies
+    return exit(1);
+  }
+  print STDERR ((scalar localtime),": [pid $$] CRASHED\n : ",@_,"\n");
+  if ($^S) {
+    # Die within eval does not count.
+    $dying--;
+    # Just use regular die.
+    return CORE::die(@_);
+  }
+  # Stack trace of who crashed.
   &Carp::confess(@_);
-  exit;
 };
+
 
 sub _resolve_it {
   my $string = shift;
@@ -359,81 +372,13 @@ programs will run with the wrong environment
 variables pertaining to the peer (i.e.,
 REMOTE_ADDR and REMOTE_PORT).
 
-=head1 EXAMPLE CONFIGURATION
+=head1 INSTALL
 
-
-HARDWARE:
-
-
-  \  |     |  /
-   \_|_____|_/
-   /         \
-  |           |
-  | INTERNET  |
-  |           |
-   \_________/
-        |
-        |
-  ======|========= Firewall ================
-        |
-   _____|_____ Public Interface  (x.x.x.x)
-  |           |
-  | Net::DNAT |
-  |___________|
-     |         Private Interface (10.0.0.1)
-     |
-     |   _________________________
-     \__| Apache::DNAT (10.0.0.2) |
-     |  |_________________________|
-     |
-     |   _________________________
-  H  \__| Apache::DNAT (10.0.0.3) |
-  U  |  |_________________________|
-  B  |
-     |   _________________________
-     \__| Apache::DNAT (10.0.0.4) |
-     |  |_________________________|
-     |
-     |   _________________________
-     \__| Apache::DNAT (10.0.0.5) |
-        |_________________________|
-
-
-SOFTWARE:
-
-
-  #!/usr/bin/perl
-  # Program: dnat.pl
-  # Run this at startup on the box with both
-  # the public and the private interfaces.
-
-  use strict;
-  use Net::DNAT;
-
-  my $pools = {
-    main => [ "10.0.0.2", "10.0.0.3" ],
-    banner => "10.0.0.4",
-    devel =>  "10.0.0.5:8080",
-  };
-
-  my $site2pool = {
-    "site.com"     => "main",
-    "www.site.com" => "main",
-    "banner.site.com" => "banner",
-    "dev.site.com" => "devel",
-  };
-
-  run Net::DNAT
-    port => 80,
-    pools => $pools,
-    default_pool => "main",
-    host_switch_table => $site2pool,
-    ;
-
+See INSTALL document.
 
 =head1 EXAMPLES
 
-See demo/* from the distribution for some more examples.
+See demo/* from the distribution for some working examples.
 
 =head1 TODO
 
