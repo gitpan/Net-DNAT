@@ -2,7 +2,7 @@
 %define perlmod Net-DNAT
 Summary:	%{perlmod} perl module
 Name:		perl-%{perlmod}
-Version:	0.03
+Version:	0.04
 Release:	1
 License:	GPL
 Group:		Development/Languages/Perl

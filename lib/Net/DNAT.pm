@@ -8,8 +8,7 @@ use vars qw(@ISA $VERSION $listen_port);
 use Net::Server::Multiplex;
 use IO::Socket;
 
-# Just pull the VERSION from the light Apache::DNAT module
-$VERSION = do {require Apache::DNAT; $Apache::DNAT::VERSION;};
+$VERSION = '0.04';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");
@@ -117,9 +116,13 @@ sub mux_input {
   my $mux  = shift;
   my $fh   = shift;
   my $data = shift;
-  my $state = $self->{state};
-  if ($state eq "REQUEST") {
+
+  my $pool = undef; # Which pool to redirect to
+
+  if ($self->{state} eq "REQUEST") {
     print STDERR "DEBUG: input on [REQUEST] ($$data)\n";
+    # Ignore leading whitespace and blank lines
+    while ($$data =~ s/^\s+//) {}
     if ($$data =~ s%^([^\r\n]*)\r?\n%%) {
       # First newline reached.
       my $request = $1;
@@ -131,16 +134,16 @@ sub mux_input {
         $self->{request_method}  = $1;  # GET or POST
         $self->{request_path}    = $2;  # URL path
         $self->{request_proto}   = $3;  # 1.0 or 1.1
-        $self->{state} = $state = "HEADERS";
+        $self->{state} = "HEADERS";
       } else {
-        $$data = "";
-        $mux->write($fh, "Request Format Not recognized!\n");
-        $mux->shutdown($fh, 2);
+        $self->{state} = "CONTENT";
+        $_ = $request;
+        goto POOL_DETERMINED;
       }
     }
   }
 
-  if ($state eq "HEADERS" && $$data) {
+  if ($self->{state} eq "HEADERS" && $$data) {
     print STDERR "DEBUG: input on [HEADERS] ($$data)\n";
     # Search for the "nothing" line
     if ($$data =~ s/^((.*\n)*)\r?\n//) {
@@ -161,14 +164,12 @@ sub mux_input {
         "Remote-Addr: $self->{peeraddr}\n".
           "Remote-Port: $self->{peerport}\n";
 
-      $self->{state} = $state = "CONTENT";
+      $self->{state} = "CONTENT";
       # Determine correct pool destination
       # based on the request $_
       $_ = "$self->{request_method} $self->{request_path} HTTP/1.0\r\n$self->{request_headers_block}";
       # Rectify host header for simplicity
       s/^Host:\s*([\w\.]*\w)\.?((:\d+)?)\r?\n/Host: \L$1$2\r\n/im;
-
-      my $pool = undef;
 
       # First run through the switch_filters
       my @switch_filters = @{ $self->{net_server}->{switch_filters} };
@@ -205,6 +206,7 @@ sub mux_input {
         }
       }
 
+    POOL_DETERMINED:
       # Otherwise, just use the default
       if (!defined($pool)) {
         $pool = $self->{net_server}->{default_pool};
@@ -254,7 +256,7 @@ sub mux_input {
     }
   }
 
-  if ($state eq "CONTENT" && $$data) {
+  if ($self->{state} eq "CONTENT" && $$data) {
     print STDERR "DEBUG: input on [CONTENT] on fileno [".fileno($fh)."] (".(length $$data)." bytes) to socket on fileno [".fileno($self->{complement_object}->{fh})."]\n";
     $mux->write($self->{complement_object}->{fh}, $$data);
     $$data = "";
@@ -430,15 +432,14 @@ See demo/* from the distribution for some more examples.
 =head1 TODO
 
   Support for HTTP/1.1 protocol conversion to 1.0 protocol and back again.
+  Support for HTTP/1.1 KeepAlive timeout and KeepAliveRequests.
   Support for SSL protocol conversion to plain text.
-  Support for html error pages for internal errors:
-    1) Server outage
-    2) Protocol misconformities
+  Support for html error pages for internal errors like Server outages.
   Support for error logs.
   Support for access logs.
-  Support for HTTP/1.1 KeepAlive timeout and KeepAliveRequests.
   Support for CVS protocol.
   Support for FTP protocol.
+  Support for OOB channel data correctly.
   Support for DNS protocol.
   Support for periodic service checks (Net::Ping)
     to disable and enable forwarding.

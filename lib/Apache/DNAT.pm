@@ -5,7 +5,7 @@ use vars qw($VERSION);
 use Apache::Constants qw(DECLINED);
 use Socket qw(sockaddr_in inet_aton inet_ntoa);
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 sub handler {
   my $r = shift;

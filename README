@@ -113,15 +113,14 @@ EXAMPLES
 
 TODO
       Support for HTTP/1.1 protocol conversion to 1.0 protocol and back again.
+      Support for HTTP/1.1 KeepAlive timeout and KeepAliveRequests.
       Support for SSL protocol conversion to plain text.
-      Support for html error pages for internal errors:
-        1) Server outage
-        2) Protocol misconformities
+      Support for html error pages for internal errors like Server outages.
       Support for error logs.
       Support for access logs.
-      Support for HTTP/1.1 KeepAlive timeout and KeepAliveRequests.
       Support for CVS protocol.
       Support for FTP protocol.
+      Support for OOB channel data correctly.
       Support for DNS protocol.
       Support for periodic service checks (Net::Ping)
         to disable and enable forwarding.
