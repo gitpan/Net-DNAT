@@ -7,7 +7,7 @@ use Net::Server::Multiplex;
 use IO::Socket;
 use Carp ();
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 @ISA = qw(Net::Server::Multiplex);
 
 $listen_port = getservbyname("http", "tcp");

@@ -1,7 +1,6 @@
 package Apache::DNAT;
 
 use strict;
-use Apache::Constants qw(DECLINED OK MOVED);
 use Socket qw(sockaddr_in inet_aton inet_ntoa);
 
 sub handler {
@@ -24,7 +23,7 @@ sub handler {
   }
 
   # Now pretend like I didn't do anything.
-  return DECLINED;
+  return &Apache::DECLINED();
 }
 
 
@@ -39,7 +38,7 @@ sub UnPort {
       $r->push_handlers(PerlHandler => \&directory_bounce);
     }
   }
-  return OK;
+  return &Apache::OK;
 }
 
 sub directory_bounce {
@@ -52,14 +51,14 @@ sub directory_bounce {
   my $url = "$proto://$host$path/";
   $url .= "?$query" if length $query;
 
-  $r->status(MOVED);
+  $r->status(&Apache::MOVED());
   $r->content_type("text/html");
   $r->header_out(Location => $url);
   $r->send_http_header;
 
-  return OK if $r->header_only;
+  return &Apache::OK() if $r->header_only;
   $r->print("Moved <a href=$url>here</a>\n");
-  return OK;
+  return &Apache::OK();
 }
 
 1;

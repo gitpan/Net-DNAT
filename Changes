@@ -1,6 +1,10 @@
 Changes
 =======
 
+0.10  Tue Feb 25 21:00 2003
+	- A few compatibility fixes for Apache::DNAT
+	  under Apache 2.x (mod_perl 1.99).
+
 0.09  Wed Jan 29 20:00 2003
 	- Fix this fatal crash introduced in 0.08:
 	  Can't locate object method "close" via package
